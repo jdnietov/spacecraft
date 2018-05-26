@@ -1,68 +1,108 @@
 import esprima
-import os 
-import glob
+import os
+
+PROJECT_PATH="/home/jdnietov/Development/meteorapp"
+PROJECT_FILES=[]
+
+class BlazeFunction:
+    name = ""
+    args = ""
+
+    def __init__(self, name, args):
+        self.name = name
+        self.args = args
+
+class BlazeEvent(BlazeFunction):
+    event = ""
+
+class BlazeTemplate:
+    name = ""
+    onCreated = {}
+    methods = {
+        "helpers": [],
+        "events": []
+    }
+
+    def __init__(self, name):
+        self.name = name
+
+    def initOnCreated(self, body):
+        self.onCreated = body   # TODO:
+
+    def addFunctionToMethod(self, methodName, function):
+        if methodName in methods:
+            methods[methodName].append(function)
+        else:
+            print("ERROR: no Blaze method is named", methodName)
+
 
 class ProjectFile:
-    name=""
-    path=""
+    name = ""
+    path = ""
 
+    templates = []
     variables = []
-    funcs=[]
-    dependencies=[]
+    funcs = []
+    dependencies = []
 
     def __init__(self, name, path):
         self.name = name
         self.path = path
     
-    def getCode(self):
+    def getSyntaxTree(self):
         file = open(self.path + "/" + self.name, "r")
-        code = file.read()
+        tree = esprima.parseModule(file.read())
         file.close()
-        return code
+        return tree
 
-class ProjectTemplate(ProjectFile):
-    methods = {
-        "helpers": {},
-        "events": {}
-    }
+    def hasTemplate(self, name): 
+        for template in self.templates:
+            if template.name == name:
+                return True
+        return False
 
-    def addMethod(name, value):
+    def addTemplate(self, templateName):
+        self.templates.append(BlazeTemplate(templateName))
 
+    def addFunctionToMethod(self, templateName, methodName, blazeFunction):
+        tidx = False
+        for t in range(len(self.templates)):
+            if self.templates[t].name == templateName:
+                tidx = t
 
-PROJECT_PATH=""
-PROJECT_FILES=[]
+        if not template:
+            print("ERROR:", templateName, "is not defined inside", self.name)
+            return False
+        
+        return self.templates[tidx].addFunctionToMethod(methodName, blazeFunction)
+
+        
+
 
 def parse(file):
-    tokens = esprima.tokenize(file.getCode())
+    tree = file.getSyntaxTree()
+    methods = []
 
-    templateName = ""
-    print(tokens)
-    
-    i = 0
-    while i < len(tokens):
-        # TODO: include Template dependency
-        if tokens[i].type == "Identifier" and tokens[i].value == "Template":
-            if len(templateName) > 0:
-                templateName = tokens[i+2].value
-            
-            i = i + 4
-            method = ""
-            if tokens[i].type == "Identifier":
-                method = tokens[i].value
-                print(method)
+    for statement in tree.body:
+        if statement.type == 'ImportDeclaration':
+            print("TODO: dependencies")
+        if statement.type == 'ExpressionStatement':
+            callee = statement.expression.callee
+            if callee.type == 'MemberExpression' and callee.object.object.name == "Template":
+                name = callee.object.property.name
 
-        i = i + 1
+                if not file.hasTemplate(name):
+                    file.addTemplate(name)
+
+                method = callee.property.name
+                print(method)                
 
 def main():
-    PROJECT_PATH=raw_input()
+    # PROJECT_PATH=raw_input()
 
-    # get main.js code - wherever it is
     for (dirpath, dirnames, filenames) in os.walk(PROJECT_PATH):
         if "main.js" in filenames:
-            f = ProjectFile("main.js", dirpath)
-
-            print(f.getCode())
-            
+            f = ProjectFile("main.js", dirpath)            
             PROJECT_FILES.append(f)            
             break
 
