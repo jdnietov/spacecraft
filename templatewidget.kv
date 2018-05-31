@@ -1,0 +1,21 @@
+#:kivy 1.9.1
+
+<CustButton@Button>:
+    font_size: 32
+    color: 0, 0, 0, 1
+    size: 150, 50
+    background_normal: ''
+    background_down: 'bkgrd-down-color.png'
+    background_color: .88, .88, .88, 1
+ 
+<TemplateWidget>:
+    CustButton:
+        text: "un"
+        pos: root.x, 200
+    CustButton:
+        text: "cerdo"
+        pos: 200, root.y
+    CustButton:
+        text: "Soy"
+        pos: 200, 400
+ 
