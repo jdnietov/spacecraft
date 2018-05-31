@@ -1,19 +1,21 @@
 import esprima
-from dirstrs import slicelast
+from dirstrs import slicelast, isnpm, ext
 
-class MeteorVar:
-    name = ""
-    type = ""
+class File(object):
+    def __init__(self, name, path):
+        self.fname = name
+        self.path = path
+        print self.fullpath()
+
+    def fullpath(self):
+        return self.path + "/" + self.fname        
 
 class BlazeFunction:
-    name = ""
-    args = ""
-
     def __init__(self, name, args):
         self.name = name
         self.args = args
 
-    def printInfo(self):
+    def printFunc(self):
         argsStr = ["("]
         for arg in self.args:
             argsStr.append(arg)
@@ -21,12 +23,9 @@ class BlazeFunction:
         argsStr[len(argsStr)-1] = ")"
         print self.name + "".join(argsStr)
 
-class BlazeEvent(BlazeFunction):
-    event = ""
-
 class BlazeTemplate:
     def __init__(self, name):
-        self.name = name
+        self.tname = name
         self.localVariables = []
         self.methods = {
             "helpers": [],
@@ -45,20 +44,74 @@ class BlazeTemplate:
             print "*** BlazeError: no Blaze method is named " + methodName
             return False
 
-
-class ProjectFile:
+class ProjectFile(File):
     def __init__(self, name, path):
-        self.name = name
-        self.path = path
+        super(ProjectFile, self).__init__(name, path)     
         self.templates = {}
         self.variables = []
         self.funcs = []
         self.imports = []
+
+        self.__load()
     
+    def __load(self):
+        tree = self.getSyntaxTree()
+
+        for statement in tree.body:
+            if statement.type == 'ImportDeclaration':
+                specifiers = statement.specifiers
+                module = createmodule(statement.source.value.encode('ascii'))
+
+                for spec in specifiers:
+                    importName = spec.local.name.encode('ascii')
+                    if spec.type == 'ImportSpecifier':
+                        module.addConst(importName)
+                    elif spec.type == 'ImportDefaultSpecifier':
+                        module.default = importName
+
+                module.printDep()
+                self.addImport(module)
+
+            elif statement.type == 'ExpressionStatement':
+                expression = statement.expression
+                callee = expression.callee
+
+                if callee.type == 'MemberExpression' and callee.object.object.name == "Template":
+                    templateName = callee.object.property.name.encode('ascii')
+
+                    if not self.hasTemplate(templateName):
+                        self.addTemplate(templateName)
+
+                    methodName = callee.property.name
+                    if methodName == "onCreated":
+                        pass
+
+                    if methodName == "helpers":
+                        functions = expression.arguments[0].properties
+                        for f in functions:
+                            functionName = f.key.name.encode('ascii')
+                            params = f.value.params
+                            args = []
+                            for param in params:
+                                args.append(param.name.encode('ascii'))
+                            function = BlazeFunction(functionName, args)
+                            self.addFunctionToMethod(templateName, methodName, function)
+
+                    elif methodName == "events":
+                        functions = expression.arguments[0].properties
+                        for f in functions:
+                            functionName = f.key.value
+                            args = []
+                            for param in params:
+                                args.append(param.name.encode('ascii'))
+                            function = BlazeFunction(functionName, args)
+                            self.addFunctionToMethod(templateName, methodName, function)
+
     def getSyntaxTree(self):
-        file = open(self.path + "/" + self.name, "r")
-        tree = esprima.parseModule(file.read())
-        file.close()
+        fp = self.fullpath()
+        code = open(fp, "r")
+        tree = esprima.parseModule(code.read())
+        code.close()
         # print(tree)
         return tree
 
@@ -82,20 +135,24 @@ class ProjectFile:
             return False
 
     def printInfo(self):
-        print "File:", self.name
-        print self.path + "/" + self.name
+        print "File:", self.fname
+        print self.fullpath()
         print "*****\nTemplates included:"
         for name in self.templates:
             template = self.templates[name]
-            print "\t" + template.name
-            print template.methods
+            print "\t" + template.tname
+            # print template.methods
+            for method in template.methods:
+                print "\t\t" + method
+                for function in template.methods[method]:
+                    function.printFunc()
         
 class Module(object):
     def __init__(self, path):
         self.default = ""
         self.consts = []
+        print path
         self.relativePath = path
-        self.file = None
     
     def addConst(self, const):
         self.consts.append(const)
@@ -107,11 +164,19 @@ class Module(object):
 class ProjectModule(Module):
     def __init__(self, name, path):
         super(ProjectModule, self).__init__(path + "/" + name)
+        self.isExternal = True
+
+class JSModule(ProjectModule):
+    def __init__(self, name, path):
+        super(JSModule, self).__init__(name, path)
         self.file = ProjectFile(name, path)
 
 def createmodule(fullpath):
-    name, path = slicelast(fullpath)
-    if name[0] == '.' or name[0] == '/':
-        return ProjectModule(name, path)
+    path, name = slicelast(fullpath)
+    if not isnpm(path):
+        if ext(name) == "js":
+            return JSModule(name, path)
+        else:
+            return ProjectModule(name, path)
     else:
         return Module(fullpath)

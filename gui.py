@@ -1,8 +1,12 @@
 import kivy
-kivy.require('1.0.6')
+kivy.require('1.9.1')
 from kivy.app import App
-from kivy.uix.label import Label
+from kivy.uix.gridlayout import GridLayout
+
+class Container(GridLayout):
+    pass
 
 class Spacecraft(App):
     def build(self):
-        return Label(text='Hello world')
+        self.title = 'Spacecraft! - software visualizer for Meteor.js projects'
+        return Container()
