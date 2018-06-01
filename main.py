@@ -4,7 +4,7 @@ import esprima
 from treelib import Node, Tree
 from dirstrs import isnpm, importpath, slicefile, ext
 
-PROJECT_PATH="/home/jdnietov/Development/meetin/"
+PROJECT_PATH=""
 FILE_PATH=""
 OPT_VERBOSE=False
 NFILES=0
@@ -348,6 +348,7 @@ def main():
             main = ProjectFile(name, PROJECT_PATH + path)
         else:
             printError(FILE_PATH + " was not found.")
+            return
 
     # print("\n• • • We're ready for ignition! • • •\n\n")
 

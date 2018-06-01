@@ -1,5 +1,4 @@
+spacecraft
+__pycache__
 .vscode
-*
-!*.py
-!*.md
-!*.kv
+*.txt
