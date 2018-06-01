@@ -1,8 +1,6 @@
 import os
-import sys
-import esprima
 import argparse
-import networkx as nx
+import esprima
 from treelib import Node, Tree
 from dirstrs import isnpm, importpath, slicefile, ext
 
@@ -351,9 +349,7 @@ def main():
         else:
             printError(FILE_PATH + " was not found.")
 
-    
     # print("\n• • • We're ready for ignition! • • •\n\n")
-
 
     main.printInfo()
     print("───────── Dependency tree for " + main.fname + " ─────────")
