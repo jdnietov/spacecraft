@@ -5,7 +5,7 @@ def slicefile(path):
     return [path[:idx], path[idx+1:]]
 
 def isnpm(path):
-    return not path[0] == '.' and not path[0] == '/'
+    return not path.startswith('.') and not path[0] == '/'
 
 def ext(path):
     idx = path.rfind('.')
