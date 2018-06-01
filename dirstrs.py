@@ -1,6 +1,6 @@
-def slicelast(path):
+def slicefile(path):
     idx = len(path)-1
-    while path[idx] != '/':
+    while idx >= 0 and path[idx] != '/':
         idx = idx - 1
     return [path[:idx], path[idx+1:]]
 
@@ -9,9 +9,15 @@ def isnpm(path):
 
 def ext(path):
     idx = path.rfind('.')
-    print "path: " + path
-    print "extension of file: " + path[path.rfind('.')+1:]
     if idx > 0:
         return path[path.rfind('.')+1:]
     else:
         return ""
+
+def importpath(rootpath, relpath, path):
+    if path[0] == '.':
+        if not relpath.endswith('/'):
+            relpath += '/'
+        return rootpath + relpath + path
+    elif path[0] == '/':
+        return rootpath + path[1:]
