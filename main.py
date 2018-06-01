@@ -1,25 +1,41 @@
-# TODO: load dynamically
-
 import os
+import esprima
+import networkx as nx
 from treelib import Node, Tree
-from dirstrs import isnpm, importpath
-# from blazer import ProjectFile, BlazeFunction, createmodule
+from dirstrs import isnpm, importpath, slicefile, ext
 
 PROJECT_PATH="/home/jdnietov/Development/meetin/"
-PROJECT_FILES=[]
-tree = Tree()
+NFILES=0
 
-import esprima
-from dirstrs import slicefile, isnpm, ext
+OPT_VERBOSE=False
+
+
+#
+# ─── CLASS DEFINITIONS ──────────────────────────────────────────────────────────
+#
 
 class File(object):
     def __init__(self, name, path):
+        global NFILES
+        self.id = NFILES
         self.fname = name
         self.path = os.path.relpath(path, PROJECT_PATH)
-        print("New file added:", self.fullpath())
+        NFILES = NFILES + 1
+        # print("~ new file added:", self.fullpath())
+    
+    def __hash__(self):
+        return hash(self.fullpath())
+    
+    def __eq__(self, other):
+        if not isinstance(other, type(self)): return NotImplemented
+        return self.fname == other.fname and self.path == other.path
 
     def fullpath(self):
-        return self.path + "/" + self.fname        
+        return self.path + "/" + self.fname
+    
+    def tag(self):
+        return self.path + "/" + self.fname
+        
 
 class BlazeFunction:
     def __init__(self, name, args):
@@ -62,8 +78,6 @@ class ProjectFile(File):
         self.variables = []
         self.funcs = []
         self.imports = []
-
-        self.load()
     
     def importTree(self):
         tree = Tree()
@@ -71,6 +85,7 @@ class ProjectFile(File):
         # TODO:
 
     def load(self):
+        new_files = []
         tree = self.getSyntaxTree()
 
         for statement in tree.body:
@@ -85,15 +100,16 @@ class ProjectFile(File):
                     elif spec.type == 'ImportDefaultSpecifier':
                         module.default = importName
 
-                module.printDep()
+                if module.hasFile:
+                    new_files.append(module.file)
+
                 self.addImport(module)
-                # tree.create_node(statement.source.value, )
 
             elif statement.type == 'ExpressionStatement':
                 expression = statement.expression
                 callee = expression.callee
 
-                if callee.type == 'MemberExpression':
+                if expression.type == "CallExpression" and callee.type == 'MemberExpression':
                     if callee.object.object is None:
                         pass
                     elif callee.object.object.name == "Template":
@@ -131,7 +147,7 @@ class ProjectFile(File):
                     else:
                         print("!! TODO: process files without templates")
 
-        return self.imports
+        return new_files
 
     def getSyntaxTree(self):
         # fp = os.path.join(PROJECT_PATH, self.path) + "/" + self.fname
@@ -173,6 +189,12 @@ class ProjectFile(File):
                 print(" * " + method)
                 for function in template.methods[method]:
                     function.printFunc()
+    
+    def tag(self):
+        if len(self.templates) > 0:
+            return self.path + "/" + self.fname + " [Template]" 
+        else:
+            return self.path + "/" + self.fname 
         
 class Module(object):
     def __init__(self, frompath, fromfile, path):
@@ -181,13 +203,10 @@ class Module(object):
         self.fromfile = fromfile
         self.frompath = frompath
         self.path = path
+        self.hasFile = False
     
     def addConst(self, const):
         self.consts.append(const)
-
-    def printDep(self):
-        # print(self.path, self.default, self.consts)
-        return 0
     
 class ProjectModule(Module):
     def __init__(self, frompath, fromfile, path):
@@ -199,12 +218,13 @@ class JSModule(ProjectModule):
         super(JSModule, self).__init__(frompath, fromfile, fullpath)
         path, name = slicefile(fullpath)
         self.file = ProjectFile(name, importpath(PROJECT_PATH, frompath, path))
+        self.hasFile = True
 
 def createmodule(frompath, fromfile, path):
     # print("// frompath:", frompath, ", path:", path)
     if not isnpm(path):
         if ext(path) == "js":
-            print("[!] JS module imported:", path + "\n")
+            print("[!] JS module imported:", path)
             return JSModule(frompath, fromfile, path)
         else:
             print("[*] markup module imported:", path)
@@ -213,17 +233,40 @@ def createmodule(frompath, fromfile, path):
         print("[-] npm module imported:", path)
         return Module(frompath, fromfile, path)
 
+
+
+#
+# ─── PROJECT VISUALIZATION METHODS ──────────────────────────────────────────────
+#
+
+def generateTree(rootFile):
+    files = rootFile.load()
+
+    rootId = rootFile.id
+    rootTag = rootFile.tag()
+    myTree = Tree()
+    myTree.create_node(rootTag, rootId)    
+
+    for file in files:
+        myTree.paste(rootId, generateTree(file))
+    
+    return myTree
+
+
+#
+# ─── MAIN MODULE ────────────────────────────────────────────────────────────────
+#
+    
 def main():
     # PROJECT_PATH=raw_input()
-    
+    main = {}
     for (dirpath, dirnames, filenames) in os.walk(PROJECT_PATH):
         if "main.js" in filenames:
-            f = ProjectFile("main.js", dirpath)         
-            f.printInfo()        
-            PROJECT_FILES.append(f)            
+            main = ProjectFile("main.js", dirpath)
             break
 
-    tree.create_node("client/main.js", "client/main.js")
-    
+    tree = generateTree(main)
+    tree.show()
+    # generateGraph(main)
 
 main()

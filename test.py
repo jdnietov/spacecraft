@@ -1,8 +1,7 @@
-from dirstrs import importpath
+import esprima
 
-PROJECT_PATH="/home/jdnietov/Development/meetin/"
-
-frompath=input()
-path=input()
-
-print(importpath(PROJECT_PATH, frompath, path))
+PATH="/home/jdnietov/Development/meetin/imports/ui/pages/activityPurchase.js"
+code = open(PATH, "r")
+tree = esprima.parseModule(code.read())
+code.close()
+print(tree)
